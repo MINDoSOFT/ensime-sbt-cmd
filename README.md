@@ -1,3 +1,5 @@
+XXX Work in progress -- Below instructions probably don't work XXX
+------
 ENSIME-sbt-cmd is an sbt plugin that enables integration with the ENSIME IDE.
 
 ## how to setup
