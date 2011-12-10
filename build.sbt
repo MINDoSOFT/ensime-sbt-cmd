@@ -4,7 +4,7 @@ name := "ensime-sbt-cmd"
 
 organization := "org.ensime"
 
-version := "0.0.1"
+version := "0.0.2"
 
 scalacOptions := Seq("-deprecation", "-unchecked")
 

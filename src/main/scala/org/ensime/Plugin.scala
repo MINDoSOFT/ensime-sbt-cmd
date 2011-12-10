@@ -1,5 +1,4 @@
 package org.ensime
-
 import sbt._
 import Keys._
 
