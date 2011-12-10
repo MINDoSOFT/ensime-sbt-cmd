@@ -4,7 +4,9 @@ name := "ensime-sbt-cmd"
 
 organization := "org.ensime"
 
-version := "0.0.2"
+version := "0.0.3"
+
+libraryDependencies += "net.liftweb" %% "lift-json" % "2.4-M4"
 
 scalacOptions := Seq("-deprecation", "-unchecked")
 
