@@ -1,20 +1,17 @@
-XXX Work in progress -- Below instructions might don't work XXX
-------
 ENSIME-sbt-cmd is an sbt plugin that enables integration with the ENSIME IDE.
 
 ## how to setup
 Add the following to your `~/.sbt/plugins/build.sbt`:
 
-    addSbtPlugin("org.ensime" % "ensime-sbt-cmd" % "0.0.1")
+    resolvers += "Scala-Tools Maven2 Snapshots Repository" at "http://scala-tools.org/repo-snapshots"
 
-Then, for some reason with sbt 0.11.1, you have to do the following from sbt in your project:
-
-    > reload plugins
-    > clean
-    > reload return
+    addSbtPlugin("org.ensime" % "ensime-sbt-cmd" % "0.0.4-SNAPSHOT")
 
 ## how to use
-The above automatically adds the `ensime-dump` command. This command will be used by the ENSIME server process to glean info about your project.
+The above automatically adds the `ensime` command to your sbt build. This command will be used automatically by the ENSIME server process to extract info about your project.
+
+## how to make sure it's working
+Start sbt for your project. Enter 'ensime dump root' at the prompt. JSON-encoded information about your project should be printed to the console.
 
 ## License
-MIT License.
+BSD License

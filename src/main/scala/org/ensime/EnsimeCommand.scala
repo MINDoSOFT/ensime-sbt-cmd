@@ -21,7 +21,7 @@ object EnsimeCommand {
     case (s,"dump"::projName::rest) =>  {
       
       val initX = Project extract s
-      implicit val show = Project.showContextKey(s)
+      implicit val show:Show[ScopedKey[_]] = Project.showContextKey(s)
 
       val x:Extracted = if(projName != "root") {
 	Extracted(initX.structure, initX.session, 
@@ -104,6 +104,4 @@ object EnsimeCommand {
       s
     }
   }
-
-
 }
