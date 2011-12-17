@@ -1,4 +1,6 @@
 package org.ensime
+import util._
+import util.SExp._
 
 object EnsimeCommand {
   import java.io._
@@ -16,87 +18,106 @@ object EnsimeCommand {
   val ensimeBrief = (ensimeCommand + " dump <project> <outputFile>", 
     "Dump project for <project> information to <outputFile>.")
   val ensimeDetailed = ""
-  
+
+  //  def extracted(implicit state: State): Extracted = Project extract state
+  //  def structure(implicit state: State): BuildStructure = extracted.structure
+  //
+  //  def setting[A](key: SettingKey[A],
+  //    errorMessage: => String,
+  //    reference: ProjectReference,
+  //    configuration: Configuration = Configurations.Compile)(
+  //    implicit state: State): List[String] = {
+  //    key in (reference, configuration) get structure.data match {
+  //      case Some(a) =>
+  //      logDebug("Setting for key %s = %s".format(key.key, a))
+  //      a.success
+  //      case None => errorMessage.failNel
+  //    }
+  //  }
+  //
+  //    logger(state).debug(message)
+  //  
   def ensime = Command.args(ensimeCommand, ensimeBrief, ensimeDetailed, "huh?"){
-    case (s,"dump"::projName::rest) =>  {
-      
+    case (s,"generate"::rest) =>  {
+
+      logger(s).info("Gathering project information...")      
+
       val initX = Project extract s
-      implicit val show:Show[ScopedKey[_]] = Project.showContextKey(s)
 
-      val x:Extracted = if(projName != "root") {
-	Extracted(initX.structure, initX.session, 
-	  ProjectRef(new java.io.File("."), projName))
-      }
-      else initX
+      val projs = initX.structure.allProjects.map{ 
+	proj =>
 
-      def taskFiles(key:TaskKey[Classpath]):List[String] = {
-	val (newS,cp) = try{ x.runTask(key, s) }
-	catch{ case e => 
-	  e.printStackTrace
-	  (s,List())
+	implicit val show:Show[ScopedKey[_]] = Project.showContextKey(s)
+
+	val x = Extracted(
+	  initX.structure,
+	  initX.session,
+	  ProjectRef(proj.base, proj.id))
+
+	def taskFiles(key:TaskKey[Classpath]):List[String] = {
+	  val (newS,cp) = try{ x.runTask(key, s) }
+	  catch{ case e => 
+	    e.printStackTrace
+	    (s,List())
+	  }
+	  cp.map{ a => (a.data).getAbsolutePath()}.toList
 	}
-	cp.map{ a => (a.data).getAbsolutePath()}.toList
+
+	def settingFiles(key:SettingKey[Seq[java.io.File]]):List[String] = {
+	  val r = x.get(key)
+	  r.map{ f => f.getAbsolutePath()}.toList
+	}
+
+	val name = x.get(Keys.name)
+	val org = x.get(organization)
+	val projectVersion = x.get(version)
+	val buildScalaVersion = x.get(scalaVersion)
+	
+	val compileDeps = (
+       	  taskFiles(unmanagedClasspath in Compile) ++ 
+       	  taskFiles(managedClasspath in Compile) ++ 
+       	  taskFiles(internalDependencyClasspath in Compile)
+	)
+	val testDeps = (
+       	  taskFiles(unmanagedClasspath in Test) ++
+       	  taskFiles(managedClasspath in Test) ++ 
+       	  taskFiles(internalDependencyClasspath in Test) ++ 
+       	  taskFiles(exportedProducts in Test)
+	)
+	val runtimeDeps = (
+       	  taskFiles(unmanagedClasspath in Runtime) ++
+       	  taskFiles(managedClasspath in Runtime) ++
+       	  taskFiles(internalDependencyClasspath in Runtime) ++ 
+       	  taskFiles(exportedProducts in Runtime)
+	)
+
+	val sourceRoots =  (
+       	  settingFiles(sourceDirectories in Compile) ++
+       	  settingFiles(sourceDirectories in Test)
+	)
+
+	val targetPath = x.get(classDirectory in Compile).toString()
+	val target = new java.io.File(targetPath).getCanonicalPath
+
+	Map[KeywordAtom,SExp](
+	  key(":name") -> name, 
+	  key(":package") -> org, 
+	  key(":version") -> projectVersion,
+	  key(":compile-deps") -> SExp(compileDeps.map(SExp.apply)),
+	  key(":runtime-deps") -> SExp(runtimeDeps.map(SExp.apply)),
+	  key(":test-deps") -> SExp(testDeps.map(SExp.apply)),
+	  key(":source-roots") -> SExp(sourceRoots.map(SExp.apply)),
+	  key(":target") -> target)
+
       }
 
-      def settingFiles(key:SettingKey[Seq[java.io.File]]):List[String] = {
-	val r = x.get(key)
-	r.map{ f => f.getAbsolutePath()}.toList
-      }
-
-      val name = x.get(Keys.name)
-      val org = x.get(organization)
-      val projectVersion = x.get(version)
-      val buildScalaVersion = x.get(scalaVersion)
+      val result = SExp(Map(
+	key(":projects") -> SExp(projs.map{p => SExp(p)})
+      )).toPPReadableString
+      val file = rest.headOption.getOrElse(".ensime")
+      IO.write(new java.io.File(file), result)
+      logger(s).info("Wrote project to " + file)
       
-      val compileDeps = (
-       	taskFiles(unmanagedClasspath in Compile) ++ 
-       	taskFiles(managedClasspath in Compile) ++ 
-       	taskFiles(internalDependencyClasspath in Compile)
-      )
-      val testDeps = (
-       	taskFiles(unmanagedClasspath in Test) ++
-       	taskFiles(managedClasspath in Test) ++ 
-       	taskFiles(internalDependencyClasspath in Test) ++ 
-       	taskFiles(exportedProducts in Test)
-      )
-      val runtimeDeps = (
-       	taskFiles(unmanagedClasspath in Runtime) ++
-       	taskFiles(managedClasspath in Runtime) ++
-       	taskFiles(internalDependencyClasspath in Runtime) ++ 
-       	taskFiles(exportedProducts in Runtime)
-      )
-
-      val sourceRoots =  (
-       	settingFiles(sourceDirectories in Compile) ++
-       	settingFiles(sourceDirectories in Test)
-      )
-
-      val targetPath = x.get(classDirectory in Compile).toString()
-      val target = new java.io.File(targetPath).getCanonicalPath
-
-      val json = (
-	("name" -> name) 
-	~ ("org" -> org) 
-	~ ("projectVersion" -> projectVersion) 
-	~ ("buildScalaVersion" -> buildScalaVersion) 
-	~ ("compileDeps" -> compileDeps) 
-	~ ("testDeps" -> testDeps) 
-	~ ("runtimeDeps" -> runtimeDeps) 
-	~ ("sourceRoots" -> sourceRoots) 
-	~ ("target" -> target))
-
-      val result = compact(JsonAST.render(json))
-
-      rest.headOption match{
-	case Some(outputFile) => {
-	  IO.write(new java.io.File(outputFile), result)
-	  logger(s).info("Wrote dump to " + outputFile)
-	}
-	case None => {
-	  logger(s).info(result) 
-	}
-      }
-
       s    
     }
     case (s,args) => {

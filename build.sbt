@@ -4,7 +4,7 @@ name := "ensime-sbt-cmd"
 
 organization := "org.ensime"
 
-version := "0.0.4-SNAPSHOT"
+version := "0.0.6-SNAPSHOT"
 
 libraryDependencies += "net.liftweb" %% "lift-json" % "2.4-M4"
 
