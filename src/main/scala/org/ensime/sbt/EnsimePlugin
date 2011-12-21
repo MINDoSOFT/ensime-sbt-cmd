@@ -3,7 +3,7 @@ import sbt._
 import Keys._
 import util.{KeywordAtom, SExp}
 
-object Plugin extends sbt.Plugin {
+object EnsimePlugin extends sbt.Plugin {
 
   override lazy val settings = Seq(
     Keys.commands += EnsimeCommand.ensime,

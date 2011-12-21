@@ -12,6 +12,8 @@ object EnsimeCommand {
   import net.liftweb.json.JsonDSL._
 
   val ensimeConfig = SettingKey[Map[KeywordAtom,SExp]]("ensime-config")
+
+  val settings = Seq(ensimeConfig)
   
   val ensimeCommand = "ensime"
   val ensimeBrief = (ensimeCommand + " dump <project> <outputFile>", 
