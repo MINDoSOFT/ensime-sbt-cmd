@@ -25,7 +25,7 @@
 *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-package org.ensime.util
+package org.ensime.sbt.util
 import scala.collection.immutable.Map
 import scala.util.parsing.combinator._
 import scala.util.parsing.input
@@ -165,9 +165,11 @@ object SExp extends RegexParsers {
     }
   }
 
-  def apply(s: String): StringAtom = {
-    StringAtom(s)
-  }
+  def apply(s: String): StringAtom = strToSExp(s)
+
+  def apply(i: Int): IntAtom = intToSExp(i)
+
+  def apply(b: Boolean): BooleanAtom = boolToSExp(b)
 
   def apply(items: SExp*): SExpList = {
     SExpList(items)
@@ -200,7 +202,7 @@ object SExp extends RegexParsers {
     SExpList(nonNil.flatMap(ea => List(key(ea._1), ea._2)))
   }
 
-  implicit def strToSExp(str: String): SExp = {
+  implicit def strToSExp(str: String): StringAtom = {
     StringAtom(str)
   }
 
@@ -208,11 +210,11 @@ object SExp extends RegexParsers {
     KeywordAtom(str)
   }
 
-  implicit def intToSExp(value: Int): SExp = {
+  implicit def intToSExp(value: Int): IntAtom = {
     IntAtom(value)
   }
 
-  implicit def boolToSExp(value: Boolean): SExp = {
+  implicit def boolToSExp(value: Boolean): BooleanAtom = {
     if (value) {
       TruthAtom()
     } else {
