@@ -52,11 +52,11 @@ case class SExpList(items: Iterable[SExp]) extends SExp with Iterable[SExp] {
 
   def toKeywordMap(): Map[KeywordAtom, SExp] = {
     var m = Map[KeywordAtom, SExp]()
-    items.sliding(2, 2).foreach {
-      case (key: KeywordAtom) ::(sexp: SExp) :: rest => {
+    items.toList.sliding(2, 2).foreach {
+      case (key: KeywordAtom) :: (sexp: SExp) :: rest => {
         m += (key -> sexp)
       }
-      case _ => {}
+      case other => {}
     }
     m
   }
@@ -121,18 +121,18 @@ object SExp extends RegexParsers {
 
   import scala.util.matching.Regex
 
-  lazy val string = regexGroups("""\"((?:[^\"\\]|\\.)*)\"""".r) ^^ { m => 
+  private lazy val string = regexGroups("""\"((?:[^\"\\]|\\.)*)\"""".r) ^^ { m => 
     StringAtom(m.group(1).replace("\\\\", "\\")) 
   }
-  lazy val sym = regex("[a-zA-Z][a-zA-Z0-9-:]*".r) ^^ { s => 
+  private lazy val symbol = regex("[a-zA-Z][a-zA-Z0-9-:]*".r) ^^ { s => 
     if(s == "nil") NilAtom()
     else if(s == "t") TruthAtom()
     else SymbolAtom(s)
   }
-  lazy val keyword = regex(":[a-zA-Z][a-zA-Z0-9-:]*".r) ^^ KeywordAtom
-  lazy val number = regex("-?[0-9]+".r) ^^ { s => IntAtom(s.toInt) }
-  lazy val list = literal("(") ~> rep(expr) <~ literal(")") ^^ SExpList.apply
-  lazy val expr: Parser[SExp] = list | keyword | string | number | sym
+  private lazy val keyword = regex(":[a-zA-Z][a-zA-Z0-9-:]*".r) ^^ KeywordAtom
+  private lazy val number = regex("-?[0-9]+".r) ^^ { s => IntAtom(s.toInt) }
+  private lazy val list = literal("(") ~> rep(expr) <~ literal(")") ^^ SExpList.apply
+  private lazy val expr: Parser[SExp] = list | keyword | string | number | symbol
 
   def read(r: input.Reader[Char]): SExp = {
     val result: ParseResult[SExp] = expr(r)
@@ -171,13 +171,9 @@ object SExp extends RegexParsers {
 
   def apply(b: Boolean): BooleanAtom = boolToSExp(b)
 
-  def apply(items: SExp*): SExpList = {
-    SExpList(items)
-  }
+  def apply(items: SExp*): SExpList = sexp(items)
 
-  def apply(items: Iterable[SExp]): SExpList = {
-    SExpList(items)
-  }
+  def apply(items: Iterable[SExp]): SExpList = sexp(items)
 
   def apply(map: Map[KeywordAtom, SExp]): SExpList = {
     val buf = scala.collection.mutable.ListBuffer[SExp]()
@@ -208,6 +204,18 @@ object SExp extends RegexParsers {
 
   def key(str: String): KeywordAtom = {
     KeywordAtom(str)
+  }
+
+  def sym(str: String): SymbolAtom = {
+    SymbolAtom(str)
+  }
+
+  def sexp(items: Iterable[SExp]): SExpList = {
+    SExpList(items)
+  }
+
+  def sexp(items: SExp*): SExpList = {
+    SExpList(items)
   }
 
   implicit def intToSExp(value: Int): IntAtom = {

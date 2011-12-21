@@ -1,6 +1,7 @@
 package org.ensime.sbt
 import util._
 import util.SExp._
+import Plugin.Settings._
 
 object EnsimeCommand {
   import java.io.{File => JavaFile}
@@ -11,10 +12,6 @@ object EnsimeCommand {
   import net.liftweb.json.Printer._
   import net.liftweb.json.JsonDSL._
 
-  val ensimeConfig = SettingKey[Map[KeywordAtom,SExp]]("ensime-config")
-
-  val settings = Seq(ensimeConfig)
-  
   val ensimeCommand = "ensime"
   val ensimeBrief = (ensimeCommand + " dump <project> <outputFile>", 
     "Dump project for <project> information to <outputFile>.")
@@ -46,7 +43,7 @@ object EnsimeCommand {
 	val projRef = ProjectRef(proj.base, proj.id)
 	val x = Extracted(buildStruct,session,projRef)
 
-	logInfo(proj.id + "...")      
+	logInfo("Extracting " + proj.id + "...")
 
 	def evaluateTask[T](taskKey: sbt.Project.ScopedKey[sbt.Task[T]]):Option[(State, Result[T])] =
 	EvaluateTask(buildStruct, taskKey, s, projRef)
@@ -62,7 +59,10 @@ object EnsimeCommand {
 	def taskFiles(key:TaskKey[Classpath]):List[String] = {
 	  val cp = evaluateTask(key) match {
             case Some((s,Value(deps))) => deps
-            case _ => logErrorAndFail("Failed to obtain classpath for: " + key)
+            case _ => {
+	      logger(s).error("Failed to obtain classpath for: " + key)
+	      List()
+	    }
 	  }
 	  cp.map{ att => (att.data).getAbsolutePath }.toList
 	}
@@ -101,7 +101,10 @@ object EnsimeCommand {
 
 	val target = optSetting(classDirectory in Compile).map(_.getCanonicalPath)
 
-	reqSetting(ensimeConfig,"Setting ensime-config not defined!") ++ Map[KeywordAtom,SExp](
+	val extras = optSetting(ensimeConfig).getOrElse(SExpList(List[SExp]()))
+	logger(s).info("  ensime-config := " + extras.toReadableString)
+
+	extras.toKeywordMap ++ Map[KeywordAtom,SExp](
 	  key(":name") -> name.map(SExp.apply).getOrElse(NilAtom()),
 	  key(":package") -> org.map(SExp.apply).getOrElse(NilAtom()),
 	  key(":version") -> projectVersion.map(SExp.apply).getOrElse(NilAtom()),
@@ -113,8 +116,7 @@ object EnsimeCommand {
       }
 
       val result = SExp(Map(
-	  key(":use-sbt") -> SExp(true),
-	  key(":sbt-subprojects") -> SExp(projs.map{p => SExp(p)})
+	  key(":subprojects") -> SExp(projs.map{p => SExp(p)})
 	)).toPPReadableString
 
       val file = rest.headOption.getOrElse(".ensime")
