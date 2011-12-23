@@ -2,9 +2,10 @@
 An sbt plugin that supports integration with the ENSIME IDE.
 
 
-# Versions
+## Versions
 
 __For use with ensime 0.9.0+__
+
 0.7.0-SNAPSHOT
 
 
