@@ -1,3 +1,30 @@
+/**
+*  Copyright (c) 2010, Aemon Cannon
+*  All rights reserved.
+*  
+*  Redistribution and use in source and binary forms, with or without
+*  modification, are permitted provided that the following conditions are met:
+*      * Redistributions of source code must retain the above copyright
+*        notice, this list of conditions and the following disclaimer.
+*      * Redistributions in binary form must reproduce the above copyright
+*        notice, this list of conditions and the following disclaimer in the
+*        documentation and/or other materials provided with the distribution.
+*      * Neither the name of ENSIME nor the
+*        names of its contributors may be used to endorse or promote products
+*        derived from this software without specific prior written permission.
+*  
+*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+*  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+*  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+*  DISCLAIMED. IN NO EVENT SHALL Aemon Cannon BE LIABLE FOR ANY
+*  DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+*  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+*  ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+*  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+*  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
 package org.ensime.sbt
 import util._
 import util.SExp._
@@ -18,58 +45,37 @@ object EnsimeCommand {
   val ensimeDetailed = ""
 
   def ensime = Command.args(ensimeCommand, ensimeBrief, ensimeDetailed, "huh?"){
-    case (s,"generate"::rest) =>  {
+    case (state,"generate"::rest) =>  {
 
       def logInfo(message: String) {
-	logger(s).info(message);
+	logger(state).info(message);
       }
 
       def logErrorAndFail(errorMessage: String): Nothing = {
-	logger(s).error(errorMessage);
+	logger(state).error(errorMessage);
 	throw new IllegalArgumentException()
       }
 
       logInfo("Gathering project information...")      
 
-      val initX = Project extract s
-      val buildStruct = initX.structure
-      val session = initX.session
+      val initX = Project extract state
 
-      val projs = initX.structure.allProjects.map{ 
+      val projs = initX.structure.allProjects.map{
 	proj =>
+
+	import Compat._
+
+	implicit val s = state
 
 	implicit val show:Show[ScopedKey[_]] = Project.showContextKey(s)
 
-	val projRef = ProjectRef(proj.base, proj.id)
-	val x = Extracted(buildStruct,session,projRef)
+	implicit val projRef = ProjectRef(s.configuration.baseDirectory, proj.id)
+	logInfo("Processing project: " + projRef + "...")
 
-	logInfo("Extracting " + proj.id + "...")
+	implicit val x = Extracted(initX.structure, initX.session, projRef)
+	implicit val buildStruct = x.structure
+	val session = x.session
 
-	def evaluateTask[T](taskKey: sbt.Project.ScopedKey[sbt.Task[T]]):Option[(State, Result[T])] =
-	EvaluateTask(buildStruct, taskKey, s, projRef)
-
-	def optSetting[A](key: SettingKey[A]) = key in projRef get buildStruct.data
-	
-	def reqSetting[A](key: SettingKey[A], errorMessage: => String) = {
-	  optSetting(key) getOrElse {
-            logErrorAndFail(errorMessage)
-	  }
-	}
-
-	def taskFiles(key:TaskKey[Classpath]):List[String] = {
-	  val cp = evaluateTask(key) match {
-            case Some((s,Value(deps))) => deps
-            case _ => {
-	      logger(s).error("Failed to obtain classpath for: " + key)
-	      List()
-	    }
-	  }
-	  cp.map{ att => (att.data).getAbsolutePath }.toList
-	}
-
-	def settingFiles[A](key: SettingKey[Seq[File]]):List[String] = {
-	  optSetting(key).map(fs => fs.map(_.getAbsolutePath).toList).getOrElse(List[String]())
-	}
 
 	val name = optSetting(Keys.name)
 	val org = optSetting(organization)
@@ -102,7 +108,7 @@ object EnsimeCommand {
 	val target = optSetting(classDirectory in Compile).map(_.getCanonicalPath)
 
 	val extras = optSetting(ensimeConfig).getOrElse(SExpList(List[SExp]()))
-	logger(s).info("  ensime-config := " + extras.toReadableString)
+	logger(s).info(" User configuration = " + extras.toReadableString)
 
 	extras.toKeywordMap ++ Map[KeywordAtom,SExp](
 	  key(":name") -> name.map(SExp.apply).getOrElse(NilAtom()),
@@ -121,12 +127,12 @@ object EnsimeCommand {
 
       val file = rest.headOption.getOrElse(".ensime")
       IO.write(new JavaFile(file), result)
-      logger(s).info("Wrote project to " + file)
-      s
+      logger(state).info("Wrote configuration to " + file)
+      state
     }
-    case (s,args) => {
-      logger(s).info(ensimeBrief._1)
-      s
+    case (state,args) => {
+      logger(state).info(ensimeBrief._1)
+      state
     }
   }
 }

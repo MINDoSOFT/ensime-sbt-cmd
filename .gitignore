@@ -30,3 +30,4 @@ test_projects/anti-xml
 test_projects/rogue
 
 src/main/scala/org/ensime/server/Test.scala
+src/main/scala/org/ensime/sbt/Compat.scala

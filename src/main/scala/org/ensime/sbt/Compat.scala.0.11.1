@@ -24,20 +24,40 @@
 *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-
 package org.ensime.sbt
 import sbt._
 import Keys._
-import util.{SExpList}
+import CommandSupport.logger
+import Load.BuildStructure
 
-object Plugin extends sbt.Plugin {
+object Compat{
 
-  override lazy val settings = Seq(
-    Keys.commands += EnsimeCommand.ensime
-  )
+  def evaluateTask[T](key: TaskKey[T])(implicit buildStruct:BuildStructure, s:State, projRef:ProjectRef):Option[T] = {
+    logger(s).info(" Evaluating task: " + key.key + "...")
+    EvaluateTask(buildStruct, key, s, projRef) match {
+      case Some((s, Value(result))) => Some(result)
+      case _ => {
+	logger(s).error("Task failed: " + key.key)
+	None
+      }
+    }
+  }
 
-  object Settings{
-    val ensimeConfig = SettingKey[SExpList]("ensime-config")
+  def taskFiles(key:TaskKey[Classpath])(implicit buildStruct:BuildStructure, s:State, projRef:ProjectRef):List[String] = {
+    val cp = evaluateTask(key) match {
+      case Some(deps) => deps
+      case _ => List()
+    }
+    cp.map{ att => (att.data).getAbsolutePath }.toList
+  }
+
+  def optSetting[A](key: SettingKey[A])(implicit x:Extracted, s:State) = {
+    logger(s).info(" Reading setting: " + key.key + "...")
+    x.getOpt(key)
+  }
+
+  def settingFiles[A](key: SettingKey[Seq[File]])(implicit x:Extracted, s:State):List[String] = {
+    optSetting(key).map(fs => fs.map(_.getAbsolutePath).toList).getOrElse(List[String]())
   }
 
 }
